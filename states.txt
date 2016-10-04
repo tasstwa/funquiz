@@ -1,0 +1,20 @@
+
+0:Welcome
+
+1:TestBuzzers/EnterData
+
+2:AskQuestion
+
+3:AnswerDelay
+
+4:RightAnswer
+
+5:WrongAnswer
+
+6:Timeout
+
+goto 2
+
+
+
+
