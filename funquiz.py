@@ -1,6 +1,6 @@
 from __future__ import print_function
 import os
-import curses
+import curses,curses.ascii
 import pygame
 import sys
 import json
@@ -9,44 +9,112 @@ import logging
 
 class Game(transitions.Machine):
     def __init__(self):
-        states = [ "Welcome",
-                   "Setup",
+        states = [ "Start",
+                   "Welcome",
+                   "Test",
                    "AskQuestion",
                    "WaitAnswer",
+                   "WaitJudge",
                    "RightAnswer",
                    "WrongAnswer",
                    "StealAnswer",
                    "Timeout",
                    "Score"
                  ]
-        transitions.Machine.__init__(self,states=states,initial="Welcome",send_event=True,ignore_invalid_triggers=True,queued=True)
-        self.add_transition('keypress','Welcome','Setup')
-        self.add_transition('enter','Setup','Welcome')
-        self.add_transition('tick','WaitAnswer','Timeout')
+        transitions.Machine.__init__(self,
+                states=states,
+                initial="Start",
+                send_event=True,
+                ignore_invalid_triggers=True,
+                after_state_change=self.after_state_change,
+                queued=True)
+        self.add_transition('tick','Test','Timeout',conditions=[ "never" ])
+        # Welcome
+        self.add_transition('keypress','Welcome','Test')
+        # Test
+        self.add_transition('keypress','Test','AskQuestion',conditions='ready_to_go')
+        self.add_transition('hitBuzzer','Test','Test',before=['store_buzzer_status'])
+        self.add_transition('tick','Test','Test')
+        # AskQuestion
+        self.add_transition('keypress','AskQuestion','WaitAnswer')
+        # WaitAnswer
+        self.add_transition('hitBuzzer','WaitAnswer','WaitJudge')
+        self.add_transition('keypress','WaitAnswer','WaitJudge',conditions='is_buzzer_key')
         self.round = 0
+        self.screen = Screen()
+        self.to_Welcome()
+
+    def after_state_change(self,event):
+#        self.screen.window.clear()
+        self.screen.set_title( self.state)
+        
+    def never(self,x):
+        return False
+    def ready_to_go(self,event):
+        return event.kwargs.get('key',0) == ord('g')
+    def is_buzzer_key(self,event):
+        ch = event.kwargs.get('key',0)
+        return ch >= ord('1') and ch <= ord('8')
+    def on_enter_Welcome(self,event):
+        self.buzzer_tested = [ False ] * 8
+    def on_enter_Test(self,event):
+        self.screen.addstr(4,3,"Tout les joueurs active leurs buzzers. Faire 'g' quand pret.")
+        for i in range(len(self.buzzer_tested)):
+            s = { True: "OK" , False: "  "}[self.buzzer_tested[i]] 
+            self.screen.addstr(5 + i,5,"Joueur #%d [%s]" % (i+1,s))
+    def store_buzzer_status(self,event):
+        index = int(event.kwargs['num'])
+        self.buzzer_tested[index] = True
+                
+         
 
 class Screen(object):
     def __init__(self):
         self.window = curses.initscr()
+        curses.start_color()
+        curses.use_default_colors()
         curses.cbreak()
+        curses.noecho()
         curses.halfdelay(1)
         self.window.border()
+        self.title = ""
     def getch(self):
         return self.window.getch()
     def cleanup(self):
         curses.endwin()
+    def set_title(self,title):
+        s = '[' + title + ' ' * (32-len(str(title))) + ']'
+        self.addstr(1,3,s)
+    def addstr(self,*args):
+        self.window.addstr(*args)
+        self.window.refresh()
 
 def feed_events(machine):
-    screen = Screen()
+    button_pressed = [ False ] * 8
+    fake_button_on = [ 0 ] * 8
+    screen = machine.screen
     try:
         while True:
             ch = screen.getch()
             if ch == curses.ERR:
-                machine.tick()
+                for i in range(len(fake_button_on)):
+                    if fake_button_on[i] == 1:
+                        button_pressed[i] = False
+                    if fake_button_on[i] > 0:
+                        fake_button_on[i] -= 1
+
+                machine.tick(buttons=button_pressed)
+                
             elif ch == curses.ascii.ESC:
                 break
+            # Simulate a 1s press with keys 1-8
+            elif ch >= ord('1') and ch <= ord('8'):
+                index = ch - ord('1')
+                fake_button_on[index] = 10
+                button_pressed[index] = True
+                machine.hitBuzzer(num = index,buttons=button_pressed)
             else:
-                machine.keypress(ch)
+                machine.keypress(key=ch,buttons=button_pressed)
     except:
         raise
     finally:
@@ -54,7 +122,7 @@ def feed_events(machine):
         
 
 def main():
-    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+    logging.basicConfig(stream=file("funquiz.log","w"), level=logging.INFO)
     transitions.logger.setLevel(logging.DEBUG)
     game = Game()
     feed_events(game)
