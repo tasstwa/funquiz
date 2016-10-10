@@ -1,3 +1,4 @@
+# vim: set fileencoding=utf8 :
 from __future__ import print_function
 import os
 import curses,curses.ascii
@@ -34,22 +35,24 @@ class Game(transitions.Machine):
         # Test
         self.add_transition('keypress','Test','AskQuestion',conditions='ready_to_go')
         self.add_transition('hitBuzzer','Test','Test',before=['store_buzzer_status'])
-        self.add_transition('tick','Test','Test')
+        self.add_transition('tick','Test','Test',before=['store_buttons'])
         # AskQuestion
         self.add_transition('keypress','AskQuestion','WaitAnswer')
         # WaitAnswer
         self.add_transition('hitBuzzer','WaitAnswer','WaitJudge')
-        self.add_transition('keypress','WaitAnswer','WaitJudge',conditions='is_buzzer_key')
+#        self.add_transition('keypress','WaitAnswer','WaitJudge',conditions='is_buzzer_key')
         self.round = 0
+        self.buttons = [ False ] * 8 # Local copy of pressed buttons
         self.screen = Screen()
         self.to_Welcome()
 
     def after_state_change(self,event):
-#        self.screen.window.clear()
         self.screen.set_title( self.state)
         
-    def never(self,x):
+    def never(self,event):
         return False
+    def store_buttons(self,event):
+        self.buttons = event.kwargs['buttons']
     def ready_to_go(self,event):
         return event.kwargs.get('key',0) == ord('g')
     def is_buzzer_key(self,event):
@@ -60,12 +63,23 @@ class Game(transitions.Machine):
     def on_enter_Test(self,event):
         self.screen.addstr(4,3,"Tout les joueurs active leurs buzzers. Faire 'g' quand pret.")
         for i in range(len(self.buzzer_tested)):
-            s = { True: "OK" , False: "  "}[self.buzzer_tested[i]] 
+            s = { True: "OK" , False: "__"}[self.buzzer_tested[i]] 
+       #     s = { True: "OK" , False: "  "}[self.buttons[i]] 
             self.screen.addstr(5 + i,5,"Joueur #%d [%s]" % (i+1,s))
     def store_buzzer_status(self,event):
         index = int(event.kwargs['num'])
         self.buzzer_tested[index] = True
-                
+        self.buttons = event.kwargs['buttons']
+    def on_enter_WaitAnswer(self,event):
+        self.screen.clear()
+        self.screen.set_title( self.state)
+        self.screen.addstr(4,3,"Posez la question. Pressez une touche pour attendre la reponse.")
+
+    def on_enter_WaitJudge(self,event):
+        player = event.kwargs.get('num',None)
+        self.screen.clear()
+        self.screen.set_title( self.state)
+        self.screen.addstr(4,3,"Joueur #%d" % (player,)) 
          
 
 class Screen(object):
@@ -76,7 +90,7 @@ class Screen(object):
         curses.cbreak()
         curses.noecho()
         curses.halfdelay(1)
-        self.window.border()
+        self.clear()
         self.title = ""
     def getch(self):
         return self.window.getch()
@@ -88,6 +102,10 @@ class Screen(object):
     def addstr(self,*args):
         self.window.addstr(*args)
         self.window.refresh()
+    def clear(self):
+        self.window.clear()
+        self.window.border()
+
 
 def feed_events(machine):
     button_pressed = [ False ] * 8
