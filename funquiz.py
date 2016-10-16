@@ -77,7 +77,8 @@ class Game(transitions.Machine):
 
     def read_config(self):
         try:
-            self.config = json.load(file("funquiz.cfg"))
+            with file("funquiz.cfg") as fd:
+                self.config = json.load(fd)
         except IOError:
             self.config = default_config
         self.players = self.config["players"]

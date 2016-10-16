@@ -1,0 +1,17 @@
+{
+    "rounds": 25,
+    "teams": [ "Moineau", "Corbeau" ],
+    "players": [
+            [ 0, "Alpha"],
+            [ 0, "Bravo"], 
+            [ 0, "Charlie"], 
+            [ 0, "Dan"], 
+            [ 1, "Evan"], 
+            [ 1, "Frank"], 
+            [ 1, "Gid"], 
+            [ 1, "Hector"], 
+            [ 1, "Irene"] 
+            ]
+} 
+
+
