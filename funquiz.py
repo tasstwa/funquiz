@@ -225,9 +225,22 @@ class Candy(object):
         pygame.init()
         size=(700,500)
         self.screen = pygame.display.set_mode(size)
+        self.font = pygame.font.Font(os.path.join("font","BebasNeue.otf"),120)
+        self.text_cache = {}
         pygame.display.update()
-    def show_image(self,iobj,text=None,sound=None):
+    def show_image(self,iobj,text=None,color=(0,0,0),sound=None):
         self.screen.blit(iobj,(0,0))
+        if text != None:
+            if (text,color) in self.text_cache.keys():
+                txt = self.text_cache[(text,color)]
+            else:
+                txt = self.font.render(text,True,color)
+                self.text_cache[(text,color)] = txt
+            sx,sy = txt.get_size()
+            posx = self.screen.get_width()/2 - sx/2
+            posy = self.screen.get_height() * 0.1
+            self.screen.blit(txt,(posx,posy))
+
         pygame.display.update()
 
     def get_image_obj(self,filename):
