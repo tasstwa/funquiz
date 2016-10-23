@@ -1,6 +1,7 @@
 # vim: set fileencoding=utf8 :
 from __future__ import print_function
 import os
+import os.path
 import curses,curses.ascii
 import pygame
 import sys
@@ -73,7 +74,21 @@ class Game(transitions.Machine):
         self.score = [ 0, 0 ]
         self.buttons = [ False ] * 8 # Local copy of pressed buttons
         self.screen = Screen()
+        self.candy = Candy()
+        self._load_images()
         self.to_Welcome()
+
+    def _load_images(self):
+        img = [ ("welcome", "bienvenue.jpg"),
+                ("correct", None),
+                ("wrong", None),
+                ("buzzers", None)
+            ]
+        self.imgs = {}
+        for handle,filename in img:
+            print(handle,filename)
+            if filename != None:
+                self.imgs[handle] = self.candy.get_image_obj(os.path.join("media",filename))
 
     def read_config(self):
         try:
@@ -100,6 +115,8 @@ class Game(transitions.Machine):
         return ch >= ord('1') and ch <= ord('8')
     def on_enter_Welcome(self,event):
         self.buzzer_tested = [ False ] * 8
+        self.candy.show_image(self.imgs["welcome"])
+
     def on_enter_Test(self,event):
         self.screen.addstr(4,3,"Tout les joueurs active leurs buzzers. Faire 'g' quand pret.")
         for i in range(len(self.buzzer_tested)):
@@ -201,6 +218,25 @@ class Screen(object):
         self.window.clear()
         self.window.border()
         self.window.refresh()
+
+class Candy(object):
+    """ Eye Candy"""
+    def __init__(self):
+        pygame.init()
+        size=(700,500)
+        self.screen = pygame.display.set_mode(size)
+        pygame.display.update()
+    def show_image(self,iobj,text=None,sound=None):
+        self.screen.blit(iobj,(0,0))
+        pygame.display.update()
+
+    def get_image_obj(self,filename):
+        obj = pygame.image.load(filename).convert()
+        return pygame.transform.scale(obj,self.screen.get_size())
+    def show_buttons(self,button_pressed_list,button_names):
+        pass
+    def cleanup(self):
+        pygame.quit()
 
 
 def feed_events(machine):
