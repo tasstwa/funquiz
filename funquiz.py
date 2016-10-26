@@ -17,21 +17,21 @@ default_config = {
                 } 
 
 class Game(transitions.Machine):
+    states = { "Start" : None,
+           "Welcome": None,
+           "Test": "Verifier vos temoins",
+           "AskQuestion": "Attention:",
+           "WaitAnswer": None,
+           "Countdown":"Reponse SVP",
+           "WaitJudge": None,
+           "RightAnswer": "Bravo!",
+           "WrongAnswer": "Mauvaise reponse",
+           "NoAnswer": "Trop tard!",
+           "Winners": None
+         }
     def __init__(self):
-        states = [ "Start",
-                   "Welcome",
-                   "Test",
-                   "AskQuestion",
-                   "WaitAnswer",
-                   "Countdown",
-                   "WaitJudge",
-                   "RightAnswer",
-                   "WrongAnswer",
-                   "NoAnswer",
-                   "Winners"
-                 ]
         transitions.Machine.__init__(self,
-                states=states,
+                states=Game.states.keys(),
                 initial="Start",
                 send_event=True,
                 ignore_invalid_triggers=True,
@@ -42,8 +42,8 @@ class Game(transitions.Machine):
         self.add_transition('keypress','Welcome','Test')
         # Test
         self.add_transition('go','Test','AskQuestion')
-        self.add_transition('hitBuzzer','Test','Test',before=['store_buzzer_status'])
- #       self.add_transition('tick','Test','Test',before=['store_buttons'])
+        self.add_transition('hitBuzzer','Test','Test',conditions=['store_buzzer_status'])
+        self.add_transition('tick','Test','Test',conditions=['display_buttons'])
         # AskQuestion
         self.add_transition('keypress','AskQuestion','WaitAnswer')
         self.add_transition('tick',"AskQuestion","Winners",conditions="done")
@@ -80,7 +80,7 @@ class Game(transitions.Machine):
 
     def _load_images(self):
         img = [ ("Welcome", "bienvenue.jpg"),
-                ("Test", None),
+                ("Test", "space_shuttle.jpg"),
                 ("AskQuestion", "listen.jpg"),
                 ("Countdown", "button.png"),
                 ("RightAnswer","success.png"),
@@ -106,7 +106,7 @@ class Game(transitions.Machine):
             (self.round,self.config["rounds"],self.config["teams"][0],self.score[0],self.config["teams"][1],self.score[1]))
         self.screen.set_title( self.state)
         if self.state in self.imgs.keys():
-            self.candy.show_image(self.imgs[self.state])
+            self.candy.show_image(self.imgs[self.state],Game.states[self.state])
         
     def done(self,event):
         return self.round > self.config["rounds"]
@@ -123,14 +123,24 @@ class Game(transitions.Machine):
 
     def on_enter_Test(self,event):
         self.screen.addstr(4,3,"Tout les joueurs active leurs buzzers. Faire 'g' quand pret.")
+        self.display_test_result()
+
+    def display_test_result(self):
         for i in range(len(self.buzzer_tested)):
             s = { True: "OK" , False: "__"}[self.buzzer_tested[i]] 
        #     s = { True: "OK" , False: "  "}[self.buttons[i]] 
             self.screen.addstr(5 + i,5,"%s [%s]" % (self.players[i][1],s))
+
     def store_buzzer_status(self,event):
         index = int(event.kwargs['num'])
         self.buzzer_tested[index] = True
         self.buttons = event.kwargs['buttons']
+        self.display_test_result()
+        return False
+    def display_buttons(self,event):
+        self.candy.show_buttons(self.buttons,[ x[1] for x in self.players])
+        return False
+
     def on_enter_AskQuestion(self,event):
         self.answered_by = None
         self.round += 1
@@ -250,8 +260,24 @@ class Candy(object):
     def get_image_obj(self,filename):
         obj = pygame.image.load(filename).convert()
         return pygame.transform.scale(obj,self.screen.get_size())
+
     def show_buttons(self,button_pressed_list,button_names):
-        pass
+        # Display two columns per team
+        team1x,team1y = (20,self.screen.get_height() * 0.2)
+        team2x,team2y = (self.screen.get_width() * 0.55,team1y)
+        font = self.font
+        for i in range(len(button_names)/2):
+            if button_pressed_list[i]:
+                txt = font.render(button_names[i],True,(0,0,0))
+                self.screen.blit(txt,(team1x,team1y))
+            if button_pressed_list[i+4]:
+                txt = font.render(button_names[i+4],True,(0,0,0))
+                self.screen.blit(txt,(team2x,team2y))
+            team1y += font.get_height() + 10
+            team2y += font.get_height() + 10
+        pygame.display.update()
+
+            
     def cleanup(self):
         pygame.quit()
 
