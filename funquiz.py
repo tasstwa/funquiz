@@ -79,10 +79,13 @@ class Game(transitions.Machine):
         self.to_Welcome()
 
     def _load_images(self):
-        img = [ ("welcome", "bienvenue.jpg"),
-                ("correct", None),
-                ("wrong", None),
-                ("buzzers", None)
+        img = [ ("Welcome", "bienvenue.jpg"),
+                ("Test", None),
+                ("AskQuestion", "listen.jpg"),
+                ("Countdown", "button.png"),
+                ("RightAnswer","success.png"),
+                ("WrongAnswer","failure.png"),
+                ("NoAnswer","clock.jpg")
             ]
         self.imgs = {}
         for handle,filename in img:
@@ -102,6 +105,8 @@ class Game(transitions.Machine):
         self.screen.set_status("Ronde %2u/%2u  %s: %2u   %s: %2u" % 
             (self.round,self.config["rounds"],self.config["teams"][0],self.score[0],self.config["teams"][1],self.score[1]))
         self.screen.set_title( self.state)
+        if self.state in self.imgs.keys():
+            self.candy.show_image(self.imgs[self.state])
         
     def done(self,event):
         return self.round > self.config["rounds"]
@@ -115,7 +120,6 @@ class Game(transitions.Machine):
         return ch >= ord('1') and ch <= ord('8')
     def on_enter_Welcome(self,event):
         self.buzzer_tested = [ False ] * 8
-        self.candy.show_image(self.imgs["welcome"])
 
     def on_enter_Test(self,event):
         self.screen.addstr(4,3,"Tout les joueurs active leurs buzzers. Faire 'g' quand pret.")
