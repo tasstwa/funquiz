@@ -240,7 +240,9 @@ class Candy(object):
         size=(700,500)
         self.screen = pygame.display.set_mode(size)
         self.font = pygame.font.Font(os.path.join("font","BebasNeue.otf"),120)
+        self.player_font = pygame.font.Font(os.path.join("font","BebasNeue.otf"),60)
         self.text_cache = {}
+        self.background = None
         pygame.display.update()
     def show_image(self,iobj,text=None,color=(0,0,0),sound=None):
         self.screen.blit(iobj,(0,0))
@@ -255,6 +257,7 @@ class Candy(object):
             posy = self.screen.get_height() * 0.1
             self.screen.blit(txt,(posx,posy))
 
+        self.background = self.screen.copy()
         pygame.display.update()
 
     def get_image_obj(self,filename):
@@ -263,18 +266,18 @@ class Candy(object):
 
     def show_buttons(self,button_pressed_list,button_names):
         # Display two columns per team
-        team1x,team1y = (20,self.screen.get_height() * 0.2)
+        self.screen.blit(self.background,(0,0))
+        team1x,team1y = (20,self.screen.get_height() * 0.3)
         team2x,team2y = (self.screen.get_width() * 0.55,team1y)
-        font = self.font
         for i in range(len(button_names)/2):
             if button_pressed_list[i]:
-                txt = font.render(button_names[i],True,(0,0,0))
+                txt = self.player_font.render(button_names[i],True,(0xff,0xee,0x52))
                 self.screen.blit(txt,(team1x,team1y))
             if button_pressed_list[i+4]:
-                txt = font.render(button_names[i+4],True,(0,0,0))
+                txt = self.player_font.render(button_names[i+4],True,(0x52,0x63,0xff))
                 self.screen.blit(txt,(team2x,team2y))
-            team1y += font.get_height() + 10
-            team2y += font.get_height() + 10
+            team1y += self.player_font.get_height() + 10
+            team2y += self.player_font.get_height() + 10
         pygame.display.update()
 
             
