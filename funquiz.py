@@ -160,6 +160,9 @@ class Game(transitions.Machine):
     def store_who_answered(self,event):
         player = event.kwargs.get('num',None)
         self.answered_by = int(player)
+        self.buttons = [False] * 8
+        self.buttons[self.answered_by] = True
+        self.candy.show_buttons(self.buttons,[ x[1] for x in self.players])
         
     def on_enter_NoAnswer(self,event):
         self.screen.clear()
