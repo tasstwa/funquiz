@@ -1,6 +1,7 @@
 # vim: set fileencoding=utf8 :
 from __future__ import print_function
 import os
+import math
 import os.path
 import curses,curses.ascii
 import pygame
@@ -13,7 +14,8 @@ import time
 default_config = {
                     "rounds": 5,
                     "teams": [ "Equipe %d" % (i,) for i in range(1,3) ],
-                    "players": [ (int(round(i/4)),"Joueur #%d" % (i+1,)) for i in range(8)]
+                    "players": [ (int(round(i/4)),"Joueur #%d" % (i+1,)) for i in range(8)],
+                    "answer_timeout": 5
                 } 
 
 class Game(transitions.Machine):
@@ -54,7 +56,8 @@ class Game(transitions.Machine):
 #        self.add_transition('keypress','WaitAnswer','WaitJudge',conditions='is_buzzer_key')
         # Countdown
         self.add_transition('hitBuzzer','Countdown','WaitJudge',before=['store_who_answered'])
-        self.add_transition('one_second','Countdown','Countdown',before=['dec_timer','display_time_left'])
+        self.add_transition('one_second','Countdown','Countdown',before=['display_time_left','dec_timer'])
+        self.add_transition('tick',"Countdown","Countdown",conditions="display_graphic_countdown")
         self.add_transition('time_expired',"Countdown","NoAnswer")
         # NoAnswer
         self.add_transition('keypress',"NoAnswer","AskQuestion")
@@ -150,13 +153,19 @@ class Game(transitions.Machine):
     def on_enter_WaitAnswer(self,event):
         self.screen.clear()
         self.screen.addstr(4,3,"On attends la reponse...")
-        self.countdown = 5
+        self.countdown = self.config["answer_timeout"]
+        self.ds_left = self.countdown * 10   # Tick is 1/10s
     def dec_timer(self,event):
         self.countdown -= 1
     def display_time_left(self,event):
         self.screen.addstr(5,6,"%d sec" % self.countdown)
         if self.countdown <= 0:
             self.time_expired()
+    def display_graphic_countdown(self,event):
+        self.ds_left -= 1
+        color = (220,10,10)
+        self.candy.show_progress(100.0*self.ds_left/(10.0 * self.config["answer_timeout"]),color,str(self.countdown))
+        return False # Do not move to next state.
     def store_who_answered(self,event):
         player = event.kwargs.get('num',None)
         self.answered_by = int(player)
@@ -282,8 +291,25 @@ class Candy(object):
             team1y += self.player_font.get_height() + 10
             team2y += self.player_font.get_height() + 10
         pygame.display.update()
+    def show_progress(self,percent,color=(0,0,0),text=None):
+        self.screen.blit(self.background,(0,0))
 
-            
+        xpos = self.screen.get_width()*0.8
+        ypos = self.screen.get_height()*0.2
+        xsize = 50
+        ysize = self.screen.get_height()*0.7
+        black=(0,0,0)
+        thick = 2
+        pygame.draw.rect(self.screen,black,(xpos,ypos,xsize,ysize),thick+1)
+        # Adjust to display
+        xpos += thick
+        xsize -= thick*2
+        ysize -= thick*2
+        ypos = ypos + ysize * (100.0 - percent)/100.0
+        ysize = ysize * percent/100.0
+        pygame.draw.rect(self.screen,color,(xpos,ypos,xsize,ysize),0) 
+        pygame.display.update()
+
     def cleanup(self):
         pygame.quit()
 

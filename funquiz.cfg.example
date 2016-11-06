@@ -11,7 +11,8 @@
             [ 1, "Gid"], 
             [ 1, "Hector"], 
             [ 1, "Irene"] 
-            ]
+            ],
+    "answer_timeout": 5
 } 
 
 
