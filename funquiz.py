@@ -29,6 +29,8 @@ class Game(transitions.Machine):
            "RightAnswer": "Bravo!",
            "WrongAnswer": "Mauvaise reponse",
            "NoAnswer": "Trop tard!",
+           "Steal": "Droit de reponse",
+           "WaitJudgeSteal": None,
            "Winners": None
          }
     def __init__(self):
@@ -56,7 +58,7 @@ class Game(transitions.Machine):
 #        self.add_transition('keypress','WaitAnswer','WaitJudge',conditions='is_buzzer_key')
         # Countdown
         self.add_transition('hitBuzzer','Countdown','WaitJudge',before=['store_who_answered'])
-        self.add_transition('one_second','Countdown','Countdown',before=['display_time_left','dec_timer'])
+        self.add_transition('one_second','Countdown','Countdown',before=['display_time_left','dec_timer'],conditions="never")
         self.add_transition('tick',"Countdown","Countdown",conditions="display_graphic_countdown")
         self.add_transition('time_expired',"Countdown","NoAnswer")
         # NoAnswer
@@ -70,7 +72,17 @@ class Game(transitions.Machine):
         self.add_transition('keypress',"RightAnswer","AskQuestion")
 
         # WrongAnswer
-        self.add_transition('keypress',"WrongAnswer","AskQuestion")
+        self.add_transition('keypress',"WrongAnswer","Steal")
+        
+        # Steal
+        self.add_transition('hitBuzzer','Steal','WaitJudgeSteal',after=['store_who_answered'],conditions=['limit_steal_team'])
+        self.add_transition('one_second','Steal','Steal',before=['display_time_left','dec_timer'],conditions="never")
+        self.add_transition('tick',"Steal","Steal",conditions="display_graphic_countdown")
+        self.add_transition('time_expired',"Steal","NoAnswer")
+
+        # WaitJudgeSteal
+        self.add_transition('yes','WaitJudgeSteal','RightAnswer')
+        self.add_transition('no','WaitJudgeSteal','AskQuestion')
 
         self.read_config()
         self.round = 0
@@ -88,7 +100,8 @@ class Game(transitions.Machine):
                 ("Countdown", "button.png"),
                 ("RightAnswer","success.png"),
                 ("WrongAnswer","failure.png"),
-                ("NoAnswer","clock.jpg")
+                ("NoAnswer","clock.jpg"),
+                ("Steal","steal.png"),
             ]
         self.imgs = {}
         for handle,filename in img:
@@ -146,6 +159,7 @@ class Game(transitions.Machine):
 
     def on_enter_AskQuestion(self,event):
         self.answered_by = None
+        self.answer_value = 2
         self.round += 1
         self.screen.clear()
         self.screen.addstr(4,3,"Posez la question. Pressez une touche pour attendre la reponse")
@@ -166,6 +180,11 @@ class Game(transitions.Machine):
         color = (220,10,10)
         self.candy.show_progress(100.0*self.ds_left/(10.0 * self.config["answer_timeout"]),color,str(self.countdown))
         return False # Do not move to next state.
+    def limit_steal_team(self,event):
+        player = event.kwargs.get('num',None)
+        stole_by = int(player)
+        return self.players[stole_by][0] != self.players[self.answered_by][0] 
+ 
     def store_who_answered(self,event):
         player = event.kwargs.get('num',None)
         self.answered_by = int(player)
@@ -189,13 +208,25 @@ class Game(transitions.Machine):
 
         self.screen.addstr(4,3,"Bonne reponse par %s [%s]! On continue... pressez une touche." %
                  (self.players[self.answered_by][1],self.config["teams"][winning_team]))
-        self.score[winning_team] += 1
+        self.score[winning_team] += self.answer_value
 
     def on_enter_WrongAnswer(self,event):
         self.screen.clear()
         losing_team = self.players[self.answered_by][0]
         self.screen.addstr(4,3,"Mauvaise reponse par %s [%s]! On continue... pressez une touche." %
                  (self.players[self.answered_by][1],self.config["teams"][losing_team]))
+
+    def on_enter_Steal(self,event):
+        self.answer_value = 1
+        self.countdown = self.config["answer_timeout"]
+        self.ds_left = self.countdown * 10   # Tick is 1/10s
+        self.screen.clear()
+        self.screen.addstr(4,3,"Posez la question. Pressez une touche pour attendre la reponse")
+        self.screen.addstr(5,3,"et commencer le compte a rebours.")
+
+    def on_enter_WaitJudgeSteal(self,event):
+        return self.on_enter_WaitJudge(event)
+        
     def on_enter_Winners(self,event):
         self.screen.clear()
         winner = "Aucune!"
