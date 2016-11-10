@@ -58,8 +58,8 @@ class Game(transitions.Machine):
 #        self.add_transition('keypress','WaitAnswer','WaitJudge',conditions='is_buzzer_key')
         # Countdown
         self.add_transition('hitBuzzer','Countdown','WaitJudge',before=['store_who_answered'])
-        self.add_transition('one_second','Countdown','Countdown',before=['display_time_left','dec_timer'],conditions="never")
-        self.add_transition('tick',"Countdown","Countdown",conditions="display_graphic_countdown")
+        self.add_transition('one_second','Countdown','Countdown',before=['display_time_left'],conditions="never")
+        self.add_transition('tick',"Countdown","Countdown",before=["dec_timer","display_graphic_countdown"],conditions="never")
         self.add_transition('time_expired',"Countdown","NoAnswer")
         # NoAnswer
         self.add_transition('keypress',"NoAnswer","AskQuestion")
@@ -76,8 +76,8 @@ class Game(transitions.Machine):
         
         # Steal
         self.add_transition('hitBuzzer','Steal','WaitJudgeSteal',after=['store_who_answered'],conditions=['limit_steal_team'])
-        self.add_transition('one_second','Steal','Steal',before=['display_time_left','dec_timer'],conditions="never")
-        self.add_transition('tick',"Steal","Steal",conditions="display_graphic_countdown")
+        self.add_transition('one_second','Steal','Steal',before=['display_time_left'],conditions="never")
+        self.add_transition('tick',"Steal","Steal",before=["dec_timer","display_graphic_countdown"],conditions="never")
         self.add_transition('time_expired',"Steal","NoAnswer")
 
         # WaitJudgeSteal
@@ -167,19 +167,21 @@ class Game(transitions.Machine):
     def on_enter_WaitAnswer(self,event):
         self.screen.clear()
         self.screen.addstr(4,3,"On attends la reponse...")
-        self.countdown = self.config["answer_timeout"]
-        self.ds_left = self.countdown * 10   # Tick is 1/10s
+        self.ds_left = self.config["answer_timeout"] * 10   # Tick is 1/10s
     def dec_timer(self,event):
-        self.countdown -= 1
+        if (self.ds_left % 10) == 0:
+            pass
+        #            self.one_second(event)
+        self.ds_left -= 1
+        self.display_time_left(event)
     def display_time_left(self,event):
-        self.screen.addstr(5,6,"%d sec" % self.countdown)
-        if self.countdown <= 0:
+        self.screen.addstr(5,6,"%d sec" % int(self.ds_left/10.0))
+        if self.ds_left <= 0:
             self.time_expired()
     def display_graphic_countdown(self,event):
-        self.ds_left -= 1
         color = (220,10,10)
-        self.candy.show_progress(100.0*self.ds_left/(10.0 * self.config["answer_timeout"]),color,str(self.countdown))
-        return False # Do not move to next state.
+        self.candy.show_progress(100.0*self.ds_left/(10.0 * self.config["answer_timeout"]),color,str(int(self.ds_left/10)))
+
     def limit_steal_team(self,event):
         player = event.kwargs.get('num',None)
         stole_by = int(player)
@@ -218,8 +220,7 @@ class Game(transitions.Machine):
 
     def on_enter_Steal(self,event):
         self.answer_value = 1
-        self.countdown = self.config["answer_timeout"]
-        self.ds_left = self.countdown * 10   # Tick is 1/10s
+        self.ds_left = self.config["answer_timeout"] * 10   # Tick is 1/10s
         self.screen.clear()
         self.screen.addstr(4,3,"Posez la question. Pressez une touche pour attendre la reponse")
         self.screen.addstr(5,3,"et commencer le compte a rebours.")
@@ -358,10 +359,6 @@ def feed_events(machine):
         one_second = time.time()
         while True:
             ch = screen.getch()
-            now = time.time()
-            if (now - one_second) > 1.0:
-                machine.one_second(buttons=button_pressed)
-                one_second = now
             if ch == curses.ERR:
                 for i in range(len(fake_button_on)):
                     if fake_button_on[i] == 1:
