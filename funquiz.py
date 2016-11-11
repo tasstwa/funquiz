@@ -51,6 +51,7 @@ class Game(transitions.Machine):
         # AskQuestion
         self.add_transition('keypress','AskQuestion','WaitAnswer')
         self.add_transition('tick',"AskQuestion","Winners",conditions="done")
+        self.add_transition('screenDone',"AskQuestion","AskQuestion",prepare=["show_score"],conditions="never")
 
         # WaitAnswer
         self.add_transition('hitBuzzer','WaitAnswer','WaitJudge')
@@ -105,7 +106,6 @@ class Game(transitions.Machine):
             ]
         self.imgs = {}
         for handle,filename in img:
-            print(handle,filename)
             if filename != None:
                 self.imgs[handle] = self.candy.get_image_obj(os.path.join("media",filename))
 
@@ -123,7 +123,7 @@ class Game(transitions.Machine):
         self.screen.set_title( self.state)
         if self.state in self.imgs.keys():
             self.candy.show_image(self.imgs[self.state],Game.states[self.state])
-        
+        self.screenDone() 
     def done(self,event):
         return self.round > self.config["rounds"]
  
@@ -164,6 +164,9 @@ class Game(transitions.Machine):
         self.screen.clear()
         self.screen.addstr(4,3,"Posez la question. Pressez une touche pour attendre la reponse")
         self.screen.addstr(5,3,"et commencer le compte a rebours.")
+    def show_score(self,event):
+        self.candy.display_text([ "%s: %u" % ( self.config["teams"][t], self.score[t]) for t in range(2) ],(0,240,20))
+
     def on_enter_WaitAnswer(self,event):
         self.screen.clear()
         self.screen.addstr(4,3,"On attends la reponse...")
@@ -340,6 +343,15 @@ class Candy(object):
         ypos = ypos + ysize * (100.0 - percent)/100.0
         ysize = ysize * percent/100.0
         pygame.draw.rect(self.screen,color,(xpos,ypos,xsize,ysize),0) 
+        pygame.display.update()
+
+    def display_text(self,list_of_text,color=(0,0,0)):
+        xpos = self.screen.get_width()* 0.1
+        ypos = self.screen.get_height() * 0.35
+        for line in list_of_text:
+            txt = self.player_font.render(line,True,color)
+            self.screen.blit(txt,(xpos,ypos))
+            ypos += self.player_font.get_height() + 10
         pygame.display.update()
 
     def cleanup(self):
