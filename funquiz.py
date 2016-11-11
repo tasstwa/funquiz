@@ -57,9 +57,9 @@ class Game(transitions.Machine):
         self.add_transition('tick','WaitAnswer','Countdown',after=['display_time_left'])
 #        self.add_transition('keypress','WaitAnswer','WaitJudge',conditions='is_buzzer_key')
         # Countdown
-        self.add_transition('hitBuzzer','Countdown','WaitJudge',before=['store_who_answered'])
-        self.add_transition('one_second','Countdown','Countdown',before=['display_time_left'],conditions="never")
-        self.add_transition('tick',"Countdown","Countdown",before=["dec_timer","display_graphic_countdown"],conditions="never")
+        self.add_transition('hitBuzzer','Countdown','WaitJudge',prepare=['store_who_answered'])
+        self.add_transition('one_second','Countdown','Countdown',prepare=['display_time_left'],conditions="never")
+        self.add_transition('tick',"Countdown","Countdown",prepare=["dec_timer","display_graphic_countdown"],conditions="never")
         self.add_transition('time_expired',"Countdown","NoAnswer")
         # NoAnswer
         self.add_transition('keypress',"NoAnswer","AskQuestion")
@@ -76,8 +76,8 @@ class Game(transitions.Machine):
         
         # Steal
         self.add_transition('hitBuzzer','Steal','WaitJudgeSteal',after=['store_who_answered'],conditions=['limit_steal_team'])
-        self.add_transition('one_second','Steal','Steal',before=['display_time_left'],conditions="never")
-        self.add_transition('tick',"Steal","Steal",before=["dec_timer","display_graphic_countdown"],conditions="never")
+        self.add_transition('one_second','Steal','Steal',prepare=['display_time_left'],conditions="never")
+        self.add_transition('tick',"Steal","Steal",prepare=["dec_timer","display_graphic_countdown"],conditions="never")
         self.add_transition('time_expired',"Steal","NoAnswer")
 
         # WaitJudgeSteal
@@ -175,7 +175,7 @@ class Game(transitions.Machine):
         self.ds_left -= 1
         self.display_time_left(event)
     def display_time_left(self,event):
-        self.screen.addstr(5,6,"%d sec" % int(self.ds_left/10.0))
+        self.screen.addstr(5,6,"%d sec" % int(self.ds_left/10.0+1))
         if self.ds_left <= 0:
             self.time_expired()
     def display_graphic_countdown(self,event):
