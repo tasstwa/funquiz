@@ -11,6 +11,12 @@ import transitions
 import logging
 import time
 
+try:
+    import RPi.GPIO as GPIO
+except RuntimeError:
+    print("Need root access")
+
+
 default_config = {
                     "rounds": 5,
                     "teams": [ "Equipe %d" % (i,) for i in range(1,3) ],
@@ -284,8 +290,12 @@ class Candy(object):
     """ Eye Candy"""
     def __init__(self):
         pygame.init()
-        size=(700,500)
-        self.screen = pygame.display.set_mode(size)
+        if len(sys.argv) > 1 and sys.argv[1] == "-f":
+            size=(1200,1080)
+            self.screen = pygame.display.set_mode(size,pygame.FULLSCREEN)
+        else:
+            size=(700,500)
+            self.screen = pygame.display.set_mode(size)
         self.font = pygame.font.Font(os.path.join("font","BebasNeue.otf"),120)
         self.player_font = pygame.font.Font(os.path.join("font","BebasNeue.otf"),60)
         self.text_cache = {}
@@ -367,10 +377,30 @@ def feed_events(machine):
             'n': machine.no,
             'g': machine.go
             }
+   
+
+    # RPi_pins corresponds to player number
+    rpi_pins = [ 3,5,10,8,19,21,24,26 ]
+    eventq = []
+
+    def channel_down(channel):
+        eventq.append(channel)
+
+    GPIO.setmode(GPIO.BOARD)    
+    GPIO.setup (rpi_pins , GPIO.IN , pull_up_down=GPIO.PUD_UP )
+
+    for chan in rpi_pins:
+        GPIO.add_event_detect(chan,GPIO.FALLING,channel_down,20)
+
     try:
         one_second = time.time()
         while True:
             ch = screen.getch()
+            for n in range(len(button_pressed)):
+                button_pressed[n] = GPIO.input(rpi_pins[n]) == GPIO.LOW
+            if len(eventq) > 0:
+                player = rpi_pins.index(eventq.pop())
+                machine.hitBuzzer(num = player,buttons=button_pressed)
             if ch == curses.ERR:
                 for i in range(len(fake_button_on)):
                     if fake_button_on[i] == 1:
@@ -396,6 +426,7 @@ def feed_events(machine):
     except:
         raise
     finally:
+        GPIO.cleanup()
         screen.cleanup()   
         
 
