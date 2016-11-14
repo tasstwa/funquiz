@@ -41,6 +41,7 @@ class Game(transitions.Machine):
            "NoAnswer": "Trop tard!",
            "Steal": "Droit de reponse",
            "WaitJudgeSteal": None,
+           "WrongAnswerSteal":"NOOON!",
            "Winners": "Merci!" 
          }
     def __init__(self):
@@ -93,7 +94,11 @@ class Game(transitions.Machine):
 
         # WaitJudgeSteal
         self.add_transition('yes','WaitJudgeSteal','RightAnswer')
-        self.add_transition('no','WaitJudgeSteal','AskQuestion')
+        self.add_transition('no','WaitJudgeSteal','WrongAnswerSteal')
+
+        # WrongAnswerSteal
+        self.add_transition('keypress',"WrongAnswerSteal","AskQuestion")
+
 
         # Winners
         self.add_transition('screenDone',"Winners","Winners",prepare=["show_score"],conditions="never")
@@ -114,6 +119,7 @@ class Game(transitions.Machine):
                 ("Countdown", "button.png"),
                 ("RightAnswer","success.png"),
                 ("WrongAnswer","failure.png"),
+                ("WrongAnswerSteal","failure.png"),
                 ("NoAnswer","clock.jpg"),
                 ("Steal","steal.png"),
                 ("Winners","winner.jpg"),
@@ -234,6 +240,9 @@ class Game(transitions.Machine):
         losing_team = self.players[self.answered_by][0]
         self.screen.addstr(4,3,"Mauvaise reponse par %s [%s]! On continue... pressez une touche." %
                  (self.players[self.answered_by][1],self.config["teams"][losing_team]))
+
+    def on_enter_WrongAnswerSteal(self,event):
+        return self.on_enter_WrongAnswer(event)
 
     def on_enter_Steal(self,event):
         self.answer_value = 1
