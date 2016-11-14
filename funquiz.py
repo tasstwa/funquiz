@@ -13,8 +13,12 @@ import time
 
 try:
     import RPi.GPIO as GPIO
+    rpi = True
 except RuntimeError:
     print("Need root access")
+    raise
+except ImportError:
+    rpi = False
 
 
 default_config = {
@@ -37,7 +41,7 @@ class Game(transitions.Machine):
            "NoAnswer": "Trop tard!",
            "Steal": "Droit de reponse",
            "WaitJudgeSteal": None,
-           "Winners": None
+           "Winners": "Merci!" 
          }
     def __init__(self):
         transitions.Machine.__init__(self,
@@ -91,6 +95,9 @@ class Game(transitions.Machine):
         self.add_transition('yes','WaitJudgeSteal','RightAnswer')
         self.add_transition('no','WaitJudgeSteal','AskQuestion')
 
+        # Winners
+        self.add_transition('screenDone',"Winners","Winners",prepare=["show_score"],conditions="never")
+    
         self.read_config()
         self.round = 0
         self.score = [ 0, 0 ]
@@ -109,6 +116,7 @@ class Game(transitions.Machine):
                 ("WrongAnswer","failure.png"),
                 ("NoAnswer","clock.jpg"),
                 ("Steal","steal.png"),
+                ("Winners","winner.jpg"),
             ]
         self.imgs = {}
         for handle,filename in img:
@@ -296,7 +304,7 @@ class Candy(object):
         else:
             size=(700,500)
             self.screen = pygame.display.set_mode(size)
-        self.font = pygame.font.Font(os.path.join("font","BebasNeue.otf"),120)
+        self.font = pygame.font.Font(os.path.join("font","BebasNeue.otf"),100)
         self.player_font = pygame.font.Font(os.path.join("font","BebasNeue.otf"),60)
         self.text_cache = {}
         self.background = None
@@ -386,18 +394,20 @@ def feed_events(machine):
     def channel_down(channel):
         eventq.append(channel)
 
-    GPIO.setmode(GPIO.BOARD)    
-    GPIO.setup (rpi_pins , GPIO.IN , pull_up_down=GPIO.PUD_UP )
+    if rpi:
+            GPIO.setmode(GPIO.BOARD)    
+            GPIO.setup (rpi_pins , GPIO.IN , pull_up_down=GPIO.PUD_UP )
 
-    for chan in rpi_pins:
-        GPIO.add_event_detect(chan,GPIO.FALLING,channel_down,20)
+            for chan in rpi_pins:
+                GPIO.add_event_detect(chan,GPIO.FALLING,channel_down,20)
 
     try:
         one_second = time.time()
         while True:
             ch = screen.getch()
-            for n in range(len(button_pressed)):
-                button_pressed[n] = GPIO.input(rpi_pins[n]) == GPIO.LOW
+            if rpi:
+                    for n in range(len(button_pressed)):
+                        button_pressed[n] = GPIO.input(rpi_pins[n]) == GPIO.LOW
             if len(eventq) > 0:
                 player = rpi_pins.index(eventq.pop())
                 machine.hitBuzzer(num = player,buttons=button_pressed)
@@ -426,7 +436,8 @@ def feed_events(machine):
     except:
         raise
     finally:
-        GPIO.cleanup()
+        if rpi:
+            GPIO.cleanup()
         screen.cleanup()   
         
 
